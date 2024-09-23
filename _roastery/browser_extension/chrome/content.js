@@ -1,41 +1,41 @@
-(function() {
+(function () {
   const appState = {
-      consoleErrors: [],
-      loading: false,
-      currentElement: null,
-      status: null,
+    consoleErrors: [],
+    loading: false,
+    currentElement: null,
+    status: null,
 
-      setConsoleErrors(newErrors) {
-          this.consoleErrors = newErrors;
-      },
+    setConsoleErrors(newErrors) {
+      this.consoleErrors = newErrors;
+    },
 
-      setLoading(loading) {
-          this.loading = loading;
-          if(CoffeeInput()) {
-            CoffeeInput().style.display = loading ? 'none' : 'block';
-            CoffeeInput().select();
-          }
-      },
-      setCurrentElement(element, options={}) {
-          this.currentElement = element;
-          rect = element?.getBoundingClientRect();
-          drawElementOverlay(rect);
-          showCommentOverlay(options.point);
-      },
-
-      setStatus(status) {
-          this.status = status;
-          if(CoffeeOutput()){
-            CoffeeOutput().innerText = status;
-            CoffeeOutput().style.display = status ? 'block' : 'none';
-          }
+    setLoading(loading) {
+      this.loading = loading;
+      if (CoffeeInput()) {
+        CoffeeInput().style.display = loading ? "none" : "block";
+        CoffeeInput().select();
       }
+    },
+    setCurrentElement(element, options = {}) {
+      this.currentElement = element;
+      rect = element?.getBoundingClientRect();
+      drawElementOverlay(rect);
+      showCommentOverlay(options.point);
+    },
+
+    setStatus(status) {
+      this.status = status;
+      if (CoffeeOutput()) {
+        CoffeeOutput().innerText = status;
+        CoffeeOutput().style.display = status ? "block" : "none";
+      }
+    },
   };
 
   // Listens for console logs, to fix bugs and warnings
   createConsoleLogger = () => {
-      const script = document.createElement('script');
-      script.textContent = `
+    const script = document.createElement("script");
+    script.textContent = `
       (function() {
         const captureConsole = (method) => {
           const original = console[method];
@@ -64,13 +64,13 @@
         }
       })();
     `;
-      return script;
-  }
+    return script;
+  };
 
   // Create UI components
   function createCoffeeUI() {
-    const canvas = document.createElement('div');
-    canvas.id = 'CoffeeCanvas';
+    const canvas = document.createElement("div");
+    canvas.id = "CoffeeCanvas";
 
     canvas.innerHTML = `
       <div id="CoffeeUI">
@@ -121,120 +121,118 @@
     return canvas;
   }
 
-
   // Fetching and sending data
-  async function postData(url = '', data = {}) {
-      appState.setConsoleErrors([]);
-      appState.setLoading(true);
-      appState.setStatus("☕ Brewing...");
+  async function postData(url = "", data = {}) {
+    appState.setConsoleErrors([]);
+    appState.setLoading(true);
+    appState.setStatus("☕ Brewing...");
 
-      try {
-          const response = await fetch(url, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'text/event-stream'
-              },
-              body: JSON.stringify(data),
-          });
-          const reader = response.body.getReader();
-          while (true) {
-              const { value, done } = await reader.read();
-              if (done) break;
-              const text = new TextDecoder().decode(value);
-              const json_resp = JSON.parse(text);
-              const status = json_resp.status;
-              console.log('☕', status);
-              appState.setStatus('☕ '+status);
-          }
-
-          appState.setLoading(false);
-          return response;
-      } catch (error) {
-          console.error('Error generating:', error);
-          appState.setLoading(false);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify(data),
+      });
+      const reader = response.body.getReader();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const text = new TextDecoder().decode(value);
+        const json_resp = JSON.parse(text);
+        const status = json_resp.status;
+        console.log("☕", status);
+        appState.setStatus("☕ " + status);
       }
+
+      appState.setLoading(false);
+      return response;
+    } catch (error) {
+      console.error("Error generating:", error);
+      appState.setLoading(false);
+    }
   }
 
-  async function sendPrompt(prompt, options={}) {
-      console.log('Sending Prompt', prompt, appState.currentElement)
-      let body = {
-          text: prompt,
-          html: appState.currentElement ? appState.currentElement.outerHTML : null,
-          ...options
-      };
+  async function sendPrompt(prompt, options = {}) {
+    console.log("Sending Prompt", prompt, appState.currentElement);
+    let body = {
+      text: prompt,
+      html: appState.currentElement ? appState.currentElement.outerHTML : null,
+      ...options,
+    };
 
-      try {
-          const data = await postData('http://localhost:8000/prompt', body);
-          console.log('Generation success', data);
-      } catch (error) {
-          // ...
-      }
+    try {
+      const data = await postData("http://localhost:8000/prompt", body);
+      console.log("Generation success", data);
+    } catch (error) {
+      // ...
+    }
   }
-
-
 
   async function sendConsoleErrors() {
-      if (appState.consoleErrors.length === 0) {
-          return;
-      }
+    if (appState.consoleErrors.length === 0) {
+      return;
+    }
 
-      try {
-          const data = await postData('http://localhost:8000/fix_errors', appState.consoleErrors.map(e => ({
-              message: e.args.join('\n')
-          })));
-          console.log('Console Errors sent', data);
-      } catch (error) {
-          // Error handling
-      }
+    try {
+      const data = await postData(
+        "http://localhost:8000/fix_errors",
+        appState.consoleErrors.map((e) => ({
+          message: e.args.join("\n"),
+        })),
+      );
+      console.log("Console Errors sent", data);
+    } catch (error) {
+      // Error handling
+    }
   }
 
-
-  function handlePromptSubmit(prompt){
+  function handlePromptSubmit(prompt) {
     prompt = prompt || CoffeeInput().value;
-    if(prompt.startsWith('/f')){
+    if (prompt.startsWith("/f")) {
       sendConsoleErrors();
     } else {
       sendPrompt(prompt);
     }
   }
 
-
   function handleCanvasClick(e) {
-    elements = document.elementsFromPoint(e.clientX, e.clientY)
+    elements = document.elementsFromPoint(e.clientX, e.clientY);
 
-    if(elements[0].id === Canvas().id) elements.shift();
+    if (elements[0].id === Canvas().id) elements.shift();
 
-    if(Canvas().contains(elements[0])) return
+    if (Canvas().contains(elements[0])) return;
 
-    if(appState.currentElement === elements[0]) {
+    if (appState.currentElement === elements[0]) {
       appState.setCurrentElement(null);
     } else {
-      appState.setCurrentElement(elements[0], {point: {x: e.clientX, y: e.clientY}});
+      appState.setCurrentElement(elements[0], {
+        point: { x: e.clientX, y: e.clientY },
+      });
     }
   }
 
   function drawElementOverlay(rect) {
-    const canvas = Canvas()
+    const canvas = Canvas();
 
-    const previousOverlay = canvas.querySelector('#coffeeElementOverlay');
+    const previousOverlay = canvas.querySelector("#coffeeElementOverlay");
     if (previousOverlay) previousOverlay.remove();
 
     if (!rect) return;
 
-
-    const overlay = document.createElement('div');
-    overlay.id = 'coffeeElementOverlay';
+    const overlay = document.createElement("div");
+    overlay.id = "coffeeElementOverlay";
     Object.assign(overlay.style, {
-      position: 'absolute',
-      border: '2px solid rgb(172, 207, 253)',
+      position: "absolute",
+      border: "2px solid rgb(172, 207, 253)",
       left: `${rect.left}px`,
       top: `${rect.top}px`,
       width: `${rect.width}px`,
       height: `${rect.height}px`,
-      pointerEvents: 'none'
+      pointerEvents: "none",
     });
-
 
     canvas.appendChild(overlay);
   }
@@ -244,7 +242,7 @@
     const coffeeInput = CoffeeInput();
 
     if (point) {
-      coffeeUI.style.display = 'block';
+      coffeeUI.style.display = "block";
       coffeeUI.style.top = `${point.y - 10}px`;
 
       const coffeeUIWidth = coffeeUI.offsetWidth;
@@ -260,65 +258,61 @@
       coffeeInput.focus();
       coffeeInput.select();
     } else {
-      coffeeUI.style.display = 'none';
+      coffeeUI.style.display = "none";
     }
   };
 
-
-  Canvas = () => document.getElementById('CoffeeCanvas');
-  CoffeeUI = () => document.getElementById('CoffeeUI');
-  CoffeeInput = () => document.getElementById('CoffeeInput');
-  CoffeeOutput = () => document.getElementById('CoffeeOutput');
-
-
+  Canvas = () => document.getElementById("CoffeeCanvas");
+  CoffeeUI = () => document.getElementById("CoffeeUI");
+  CoffeeInput = () => document.getElementById("CoffeeInput");
+  CoffeeOutput = () => document.getElementById("CoffeeOutput");
 
   function bindEventListeners() {
-      document.addEventListener('click', handleCanvasClick, true);
+    document.addEventListener("click", handleCanvasClick, true);
 
-      // Send prompt on enter
-      CoffeeInput().addEventListener('keypress', function(e) {
-          if (e.key === 'Enter') {
-            handlePromptSubmit()
-            e.preventDefault();
-          }
-      });
+    // Send prompt on enter
+    CoffeeInput().addEventListener("keypress", function (e) {
+      if (e.key === "Enter") {
+        handlePromptSubmit();
+        e.preventDefault();
+      }
+    });
 
-      // Make sure the textarea grows with content
-      CoffeeInput().addEventListener('input', function() {
-        this.style.height = 'auto'; // Reset the height
-        this.style.height = (this.scrollHeight) + 'px'; // Set the height to scroll height
-      });
+    // Make sure the textarea grows with content
+    CoffeeInput().addEventListener("input", function () {
+      this.style.height = "auto"; // Reset the height
+      this.style.height = this.scrollHeight + "px"; // Set the height to scroll height
+    });
 
-      window.addEventListener("message", (event) => {
-          if (event.source === window && event.data.type === "CONSOLE_CAPTURE") {
-            const {
+    window.addEventListener("message", (event) => {
+      if (event.source === window && event.data.type === "CONSOLE_CAPTURE") {
+        const { method, args } = event.data;
+        if (method === "error" || method === "warn") {
+          appState.setConsoleErrors([
+            ...appState.consoleErrors,
+            {
               method,
-              args
-            } = event.data;
-            if (method === 'error' || method === 'warn') {
-              appState.setConsoleErrors([...appState.consoleErrors, {
-                method,
-                args
-              }]);
-            }
-          }
-          if(event.source === window && event.data.type === "COFFEE_COMMAND") {
-            const { strings, values } = event.data;
-            handlePromptSubmit(strings.join(''));
-          }
-      });
+              args,
+            },
+          ]);
+        }
+      }
+      if (event.source === window && event.data.type === "COFFEE_COMMAND") {
+        const { strings, values } = event.data;
+        handlePromptSubmit(strings.join(""));
+      }
+    });
   }
 
-
   function initialize() {
-      document.body.appendChild(createCoffeeUI());
-      const logger = createConsoleLogger();
-      (document.head || document.documentElement).appendChild(logger);
-      bindEventListeners();
-      appState.setConsoleErrors([]);
-      appState.setLoading(false);
+    document.body.appendChild(createCoffeeUI());
+    const logger = createConsoleLogger();
+    (document.head || document.documentElement).appendChild(logger);
+    bindEventListeners();
+    appState.setConsoleErrors([]);
+    appState.setLoading(false);
   }
 
   initialize();
-  console.log('☕ Coffee is ready to brew!');
+  console.log("☕ Coffee is ready to brew!");
 })();

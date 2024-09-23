@@ -26,7 +26,7 @@ const Latte = ({ steam, children, pass_children, ...props }) => {
     animation: "dot 1s infinite",
   };
   const [GeneratedComponent, setGeneratedComponent] = useState(
-    () => FallbackComponent
+    () => FallbackComponent,
   );
   const [loaded, setLoaded] = useState(false);
   steam = steam || "./Steam";

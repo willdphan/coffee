@@ -5,11 +5,13 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import igittigitt
 from itertools import islice
-
+import os
 
 class FileWatcher:
     def __init__(self, base_path, watch_patterns=None, ignore_patterns=None):
-        self.base_path = base_path
+        self.base_path = os.path.abspath(base_path)
+        if not os.path.exists(self.base_path):
+            raise FileNotFoundError(f"The directory {self.base_path} does not exist.")
         print("Watching directory:")
         display_content(self.base_path)
         self.watch_patterns = watch_patterns
